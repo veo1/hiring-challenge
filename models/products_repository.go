@@ -59,3 +59,15 @@ func (r *ProductsRepository) GetFilteredProducts(offset, limit int, filters Prod
 
 	return products, total, nil
 }
+
+func (r *ProductsRepository) GetByCode(code string) (*Product, error) {
+	var product Product
+	if err := r.db.
+		Preload("Variants").
+		Preload("Category").
+		Where("code = ?", code).
+		First(&product).Error; err != nil {
+		return nil, err
+	}
+	return &product, nil
+}

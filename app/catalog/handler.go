@@ -24,9 +24,16 @@ type Product struct {
 	Category Category `json:"category"`
 }
 
+type Variant struct {
+	Name  string  `json:"name"`
+	SKU   string  `json:"sku"`
+	Price float64 `json:"price"`
+}
+
 type ProductProvider interface {
 	GetAllProducts() ([]models.Product, error)
 	GetFilteredProducts(offset, limit int, filters models.ProductFilters) ([]models.Product, int64, error)
+	GetByCode(code string) (*models.Product, error)
 }
 
 type CatalogHandler struct {
@@ -100,6 +107,50 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		Total:    int(total),
 		Products: products,
 	}
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (h *CatalogHandler) HandleGetProduct(w http.ResponseWriter, r *http.Request) {
+	code := r.PathValue("code")
+
+	product, err := h.repo.GetByCode(code)
+	if err != nil {
+		http.Error(w, "Product not found", http.StatusNotFound)
+		return
+	}
+
+	// Map response
+	variants := make([]Variant, len(product.Variants))
+	for i, v := range product.Variants {
+		price := v.Price
+		if price.IsZero() {
+			price = product.Price
+		}
+		variants[i] = Variant{
+			Name:  v.Name,
+			SKU:   v.SKU,
+			Price: price.InexactFloat64(),
+		}
+	}
+
+	response := struct {
+		Code     string    `json:"code"`
+		Price    float64   `json:"price"`
+		Category Category  `json:"category"`
+		Variants []Variant `json:"variants"`
+	}{
+		Code:  product.Code,
+		Price: product.Price.InexactFloat64(),
+		Category: Category{
+			Code: product.Category.Code,
+			Name: product.Category.Name,
+		},
+		Variants: variants,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
