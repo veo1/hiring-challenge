@@ -1,10 +1,11 @@
 package catalog
 
 import (
-	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
+	"github.com/mytheresa/go-hiring-challenge/app/api"
 	"github.com/mytheresa/go-hiring-challenge/models"
 )
 
@@ -86,7 +87,7 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 
 	res, total, err := h.repo.GetFilteredProducts(offset, limit, filters)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		api.ErrorResponse(w, http.StatusInternalServerError, "failed to get products")
 		return
 	}
 
@@ -102,14 +103,11 @@ func (h *CatalogHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	response := Response{
 		Total:    int(total),
 		Products: products,
 	}
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	api.OKResponse(w, response)
 }
 
 func (h *CatalogHandler) HandleGetProduct(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +115,12 @@ func (h *CatalogHandler) HandleGetProduct(w http.ResponseWriter, r *http.Request
 
 	product, err := h.repo.GetByCode(code)
 	if err != nil {
-		http.Error(w, "Product not found", http.StatusNotFound)
+		if errors.Is(err, models.ErrProductNotFound) {
+			api.ErrorResponse(w, http.StatusNotFound, "Product not found")
+			return
+		}
+		// For any other error, return a 500
+		api.ErrorResponse(w, http.StatusInternalServerError, "Failed to retrieve product")
 		return
 	}
 
@@ -150,8 +153,5 @@ func (h *CatalogHandler) HandleGetProduct(w http.ResponseWriter, r *http.Request
 		Variants: variants,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	api.OKResponse(w, response)
 }

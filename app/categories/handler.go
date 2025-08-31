@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/mytheresa/go-hiring-challenge/app/api"
 	"github.com/mytheresa/go-hiring-challenge/models"
 )
 
@@ -28,7 +29,7 @@ func NewCategoryHandler(r CategoryProvider) *CategoryHandler {
 func (h *CategoryHandler) HandleGetAll(w http.ResponseWriter, r *http.Request) {
 	categories, err := h.repo.GetAllCategories()
 	if err != nil {
-		http.Error(w, "failed to fetch categories", http.StatusInternalServerError)
+		api.ErrorResponse(w, http.StatusInternalServerError, "failed to fetch categories")
 		return
 	}
 
@@ -40,10 +41,7 @@ func (h *CategoryHandler) HandleGetAll(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	api.OKResponse(w, response)
 }
 
 func (h *CategoryHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
@@ -53,12 +51,12 @@ func (h *CategoryHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+		api.ErrorResponse(w, http.StatusBadRequest, "Invalid JSON body")
 		return
 	}
 
 	if input.Code == "" || input.Name == "" {
-		http.Error(w, "Missing code or name", http.StatusBadRequest)
+		api.ErrorResponse(w, http.StatusBadRequest, "Missing code or name")
 		return
 	}
 
@@ -68,10 +66,11 @@ func (h *CategoryHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.repo.CreateCategory(category); err != nil {
-		http.Error(w, "Failed to create category", http.StatusInternalServerError)
+		api.ErrorResponse(w, http.StatusInternalServerError, "Failed to create category")
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Category created successfully",

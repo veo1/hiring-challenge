@@ -1,12 +1,17 @@
 package models
 
 import (
+	"errors"
+
 	"gorm.io/gorm"
 )
 
 type ProductsRepository struct {
 	db *gorm.DB
 }
+
+// ErrProductNotFound is returned when a product is not found.
+var ErrProductNotFound = errors.New("product not found")
 
 type ProductFilters struct {
 	CategoryCode  string
@@ -67,7 +72,10 @@ func (r *ProductsRepository) GetByCode(code string) (*Product, error) {
 		Preload("Category").
 		Where("code = ?", code).
 		First(&product).Error; err != nil {
-		return nil, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrProductNotFound
+		}
+		return nil, err // Other DB error
 	}
 	return &product, nil
 }
